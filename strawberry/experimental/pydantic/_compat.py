@@ -12,7 +12,7 @@ from pydantic.version import VERSION as PYDANTIC_VERSION
 from strawberry.experimental.pydantic.exceptions import UnsupportedTypeError
 
 if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
+    from pydantic.fields import FieldInfo, ComputedFieldInfo
 
 IS_PYDANTIC_V2: bool = PYDANTIC_VERSION.startswith("2.")
 IS_PYDANTIC_V1: bool = not IS_PYDANTIC_V2
@@ -124,8 +124,31 @@ class PydanticV2Compat:
 
         return PydanticUndefined
 
+    def get_computed_model_fields(self, model: type[BaseModel]) -> dict[str, CompatModelField]:
+        computed_field_info: dict[str, ComputedFieldInfo] = model.model_computed_fields
+        new_fields = {}
+        # Convert it into CompatModelField
+        for name, field in computed_field_info.items():
+            new_fields[name] = CompatModelField(
+                name=name,
+                type_=field.return_type,
+                outer_type_=field.return_type,
+                default=None,
+                default_factory=None,
+                required=False,
+                alias=field.alias,
+                # v2 doesn't have allow_none
+                allow_none=False,
+                has_alias=field is not None,
+                description=field.description,
+                _missing_type=self.PYDANTIC_MISSING_TYPE,
+                is_v1=False,
+            )
+        return new_fields
+
     def get_model_fields(self, model: type[BaseModel]) -> dict[str, CompatModelField]:
         field_info: dict[str, FieldInfo] = model.model_fields
+        computed_field_info: dict[str, ComputedFieldInfo] = model.model_computed_fields
         new_fields = {}
         # Convert it into CompatModelField
         for name, field in field_info.items():
@@ -144,7 +167,7 @@ class PydanticV2Compat:
                 _missing_type=self.PYDANTIC_MISSING_TYPE,
                 is_v1=False,
             )
-        return new_fields
+        return new_fields | self.get_computed_model_fields(model)
 
     @cached_property
     def fields_map(self) -> dict[Any, Any]:
