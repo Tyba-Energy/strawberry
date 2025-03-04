@@ -124,7 +124,8 @@ class PydanticV2Compat:
 
         return PydanticUndefined
 
-    def get_computed_model_fields(self, model: type[BaseModel]) -> dict[str, CompatModelField]:
+    def get_model_computed_fields(self, model: type[BaseModel]) -> dict[
+        str, CompatModelField]:
         computed_field_info: dict[str, ComputedFieldInfo] = model.model_computed_fields
         new_fields = {}
         # Convert it into CompatModelField
@@ -146,9 +147,9 @@ class PydanticV2Compat:
             )
         return new_fields
 
-    def get_model_fields(self, model: type[BaseModel]) -> dict[str, CompatModelField]:
+    def get_model_fields(self, model: type[BaseModel],
+                         include_computed: bool = False) -> dict[str, CompatModelField]:
         field_info: dict[str, FieldInfo] = model.model_fields
-        computed_field_info: dict[str, ComputedFieldInfo] = model.model_computed_fields
         new_fields = {}
         # Convert it into CompatModelField
         for name, field in field_info.items():
@@ -167,7 +168,9 @@ class PydanticV2Compat:
                 _missing_type=self.PYDANTIC_MISSING_TYPE,
                 is_v1=False,
             )
-        return new_fields | self.get_computed_model_fields(model)
+        if include_computed:
+            new_fields |= self.get_model_computed_fields(model)
+        return new_fields
 
     @cached_property
     def fields_map(self) -> dict[Any, Any]:
@@ -289,6 +292,7 @@ if IS_PYDANTIC_V2:
     from pydantic._internal._typing_extra import is_new_type
     from pydantic._internal._utils import lenient_issubclass, smart_deepcopy
 
+
     def new_type_supertype(type_: Any) -> Any:
         return type_.__supertype__
 else:
@@ -302,7 +306,6 @@ else:
         lenient_issubclass,
         smart_deepcopy,
     )
-
 
 __all__ = [
     "PydanticCompat",
